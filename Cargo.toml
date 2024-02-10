@@ -2,8 +2,12 @@
 name = "wecom-crypto"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "企业微信API数据加解密库。"
+license = "MIT OR Apache-2.0"
+authors = ["尹国冰", "yinguobing <yinguobing@gmail.com>"]
+repository = "https://github.com/wandering-ai/wecom-crypto"
+keywords = ["wecom"]
+readme = "README.md"
 
 [dependencies]
 aes = "0.8.3"
