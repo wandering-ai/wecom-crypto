@@ -107,7 +107,7 @@ impl CryptoAgent {
         let cipher_bytes = STANDARD.decode(encoded).unwrap();
         let block = Decryptor::<Aes256>::new(&self.key.into(), &self.nonce.into())
             .decrypt_padded_vec_mut::<Pkcs7>(&cipher_bytes)
-            .unwrap();
+            .map_err(|e| format!("Decryption error: {}", e.to_string()))?;
         let buf = block.as_slice();
         let msg_len: usize = u32::from_be_bytes(buf[16..20].try_into().unwrap()) as usize;
         let text = String::from_utf8(buf[20..20 + msg_len].to_vec())?;
