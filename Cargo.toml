@@ -1,6 +1,6 @@
 [package]
 name = "wecom-crypto"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "企业微信API数据加解密库。"
 license = "MIT OR Apache-2.0"
