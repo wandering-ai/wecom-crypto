@@ -21,11 +21,7 @@ use aes::{
     cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit},
     Aes256,
 };
-use base64::{
-    alphabet,
-    engine::{self, general_purpose::STANDARD},
-    Engine as _,
-};
+use base64::{alphabet, engine, Engine as _};
 use cbc::{Decryptor, Encryptor};
 use rand;
 use sha1::{Digest, Sha1};
@@ -61,6 +57,7 @@ pub struct CryptoSource {
 pub struct CryptoAgent {
     key: [u8; 32],
     nonce: [u8; 16],
+    b64: engine::general_purpose::GeneralPurpose,
 }
 
 impl CryptoAgent {
@@ -69,14 +66,14 @@ impl CryptoAgent {
         // The AES key is BASE64 encoded. Be careful this encoding key generated
         // by Tencent is buggy.
         let config = engine::GeneralPurposeConfig::new()
+            .with_encode_padding(false)
             .with_decode_allow_trailing_bits(true)
-            .with_decode_padding_mode(engine::DecodePaddingMode::RequireNone);
-        let key_as_vec = engine::GeneralPurpose::new(&alphabet::STANDARD, config)
-            .decode(key)
-            .unwrap();
+            .with_decode_padding_mode(engine::DecodePaddingMode::Indifferent);
+        let b64 = engine::GeneralPurpose::new(&alphabet::STANDARD, config);
+        let key_as_vec = b64.decode(key).unwrap();
         let key = <[u8; 32]>::try_from(key_as_vec).unwrap();
         let nonce = <[u8; 16]>::try_from(&key[..16]).unwrap();
-        Self { key, nonce }
+        Self { key, nonce, b64 }
     }
 
     /// 加密给定的数据结构体。加密后的字符串为BASE64编码后的数据。
@@ -99,15 +96,18 @@ impl CryptoAgent {
         // 加密
         let cipher_bytes = Encryptor::<Aes256>::new(&self.key.into(), &self.nonce.into())
             .encrypt_padded_vec_mut::<Pkcs7>(&block);
-        STANDARD.encode(&cipher_bytes)
+        self.b64.encode(&cipher_bytes)
     }
 
     /// 解密BASE64编码的加密数据。解密后的数据为CryptoSource类型。
     pub fn decrypt(&self, encoded: &str) -> Result<CryptoSource, Box<dyn Error>> {
-        let cipher_bytes = STANDARD.decode(encoded).unwrap();
+        let cipher_bytes = self
+            .b64
+            .decode(encoded)
+            .map_err(|e| format!("Base64 decode error: {}", e))?;
         let block = Decryptor::<Aes256>::new(&self.key.into(), &self.nonce.into())
             .decrypt_padded_vec_mut::<Pkcs7>(&cipher_bytes)
-            .map_err(|e| format!("Decryption error: {}", e.to_string()))?;
+            .map_err(|e| format!("AES decryption error: {}", e))?;
         let buf = block.as_slice();
         let msg_len: usize = u32::from_be_bytes(buf[16..20].try_into().unwrap()) as usize;
         let text = String::from_utf8(buf[20..20 + msg_len].to_vec())?;
