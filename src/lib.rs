@@ -18,7 +18,10 @@
 //! ```
 use aes::{
     self,
-    cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit},
+    cipher::{
+        block_padding::{NoPadding, Pkcs7},
+        BlockDecryptMut, BlockEncryptMut, KeyIvInit,
+    },
     Aes256,
 };
 use base64::{alphabet, engine, Engine as _};
@@ -105,9 +108,10 @@ impl CryptoAgent {
             .decode(encoded)
             .map_err(|e| format!("Base64 decode error: {}", e))?;
         let block = Decryptor::<Aes256>::new(&self.key.into(), &self.nonce.into())
-            .decrypt_padded_vec_mut::<Pkcs7>(&cipher_bytes)
+            .decrypt_padded_vec_mut::<NoPadding>(&cipher_bytes)
             .map_err(|e| format!("AES decryption error: {}", e))?;
-        let buf = block.as_slice();
+        let padding_size: usize = block.last().copied().unwrap() as usize;
+        let buf = &block[..block.len() - padding_size];
         let msg_len: usize = u32::from_be_bytes(buf[16..20].try_into().unwrap()) as usize;
         let text = String::from_utf8(buf[20..20 + msg_len].to_vec())?;
         let receive_id = String::from_utf8(buf[20 + msg_len..].to_vec())?;
