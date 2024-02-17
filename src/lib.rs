@@ -96,13 +96,12 @@ impl CryptoAgent {
         // 加密
         let cipher_bytes = Encryptor::<Aes256>::new(&self.key.into(), &self.nonce.into())
             .encrypt_padded_vec_mut::<Pkcs7>(&block);
-        self.b64.encode(&cipher_bytes)
+        engine::general_purpose::STANDARD.encode(&cipher_bytes)
     }
 
     /// 解密BASE64编码的加密数据。解密后的数据为CryptoSource类型。
     pub fn decrypt(&self, encoded: &str) -> Result<CryptoSource, Box<dyn Error>> {
-        let cipher_bytes = self
-            .b64
+        let cipher_bytes = engine::general_purpose::STANDARD
             .decode(encoded)
             .map_err(|e| format!("Base64 decode error: {}", e))?;
         let block = Decryptor::<Aes256>::new(&self.key.into(), &self.nonce.into())
