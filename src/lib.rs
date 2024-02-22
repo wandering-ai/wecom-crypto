@@ -26,7 +26,6 @@ use aes::{
 };
 use base64::{alphabet, engine, Engine as _};
 use cbc::{Decryptor, Encryptor};
-use rand;
 use sha1::{Digest, Sha1};
 use std::error::Error;
 
@@ -60,7 +59,6 @@ pub struct CryptoSource {
 pub struct CryptoAgent {
     key: [u8; 32],
     nonce: [u8; 16],
-    b64: engine::general_purpose::GeneralPurpose,
 }
 
 impl CryptoAgent {
@@ -72,11 +70,12 @@ impl CryptoAgent {
             .with_encode_padding(false)
             .with_decode_allow_trailing_bits(true)
             .with_decode_padding_mode(engine::DecodePaddingMode::Indifferent);
-        let b64 = engine::GeneralPurpose::new(&alphabet::STANDARD, config);
-        let key_as_vec = b64.decode(key).unwrap();
-        let key = <[u8; 32]>::try_from(key_as_vec).unwrap();
+        let key_as_vec = engine::GeneralPurpose::new(&alphabet::STANDARD, config)
+            .decode(key)
+            .expect("AES key should be valid Base64 string");
+        let key = <[u8; 32]>::try_from(key_as_vec).expect("AES key length should be 32");
         let nonce = <[u8; 16]>::try_from(&key[..16]).unwrap();
-        Self { key, nonce, b64 }
+        Self { key, nonce }
     }
 
     /// 加密给定的数据结构体。加密后的字符串为BASE64编码后的数据。
@@ -99,11 +98,11 @@ impl CryptoAgent {
         // 加密
         let cipher_bytes = Encryptor::<Aes256>::new(&self.key.into(), &self.nonce.into())
             .encrypt_padded_vec_mut::<Pkcs7>(&block);
-        engine::general_purpose::STANDARD.encode(&cipher_bytes)
+        engine::general_purpose::STANDARD.encode(cipher_bytes)
     }
 
     /// 解密BASE64编码的加密数据。解密后的数据为CryptoSource类型。
-    pub fn decrypt(&self, encoded: &str) -> Result<CryptoSource, Box<dyn Error>> {
+    pub fn decrypt(&self, encoded: &str) -> Result<CryptoSource, Box<dyn Error + Send + Sync>> {
         let cipher_bytes = engine::general_purpose::STANDARD
             .decode(encoded)
             .map_err(|e| format!("Base64 decode error: {}", e))?;
