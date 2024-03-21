@@ -31,6 +31,14 @@ use cbc::{Decryptor, Encryptor};
 use sha1::{Digest, Sha1};
 use std::error::Error;
 
+/// 生成数据签名，用于校验请求数据是否被篡改。输入需要包含Token。
+pub fn generate_signature(inputs: Vec<&str>) -> String {
+    let mut content = inputs.clone();
+    content.sort_unstable();
+    let digest = Sha1::digest(content.concat().as_bytes());
+    base16ct::lower::encode_string(&digest)
+}
+
 /// 加解密数据结构体。
 #[derive(PartialEq, Debug)]
 pub struct Source {
@@ -69,7 +77,7 @@ impl Agent {
         }
     }
 
-    /// 根据请求数据生成签名，用于校验微信服务器的请求是否合规。
+    /// 根据请求数据生成签名，用于校验微信服务器的请求是否合规。输入数据不需要包含Token。
     /// # Example
     /// ```
     /// use wecom_crypto::Agent;
@@ -83,9 +91,7 @@ impl Agent {
     pub fn generate_signature(&self, inputs: Vec<&str>) -> String {
         let mut content = inputs.clone();
         content.push(&self.token);
-        content.sort_unstable();
-        let digest = Sha1::digest(content.concat().as_bytes());
-        base16ct::lower::encode_string(&digest)
+        generate_signature(content)
     }
 
     /// 加密给定的数据结构体。加密后的字符串为BASE64编码后的数据。
@@ -138,6 +144,15 @@ mod tests {
         let agent = Agent::new(token, key);
         assert_eq!(
             agent.generate_signature(vec!["0", "c", "b"]),
+            "a8addbc99f8b3f51d2adbceb605d650b9a8940e2",
+        );
+    }
+
+    #[test]
+    fn test_mod_signature() {
+        let token = "a";
+        assert_eq!(
+            super::generate_signature(vec![token, "0", "c", "b"]),
             "a8addbc99f8b3f51d2adbceb605d650b9a8940e2",
         );
     }
