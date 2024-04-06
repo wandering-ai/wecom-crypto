@@ -1,6 +1,6 @@
 [package]
 name = "wecom-crypto"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 description = "企业微信API数据加解密库。"
 license = "MIT OR Apache-2.0"
@@ -16,3 +16,4 @@ rand = "0.8.5"
 base16ct = { version = "0.2.0", features = ["alloc"] }
 base64 = "0.21.7"
 sha1 = "0.10.6"
+thiserror = "1.0.58"
